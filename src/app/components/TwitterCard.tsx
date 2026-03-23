@@ -1,6 +1,7 @@
 "use client";
 
 import type { MetaTags } from "../types";
+import PreviewImage from "./PreviewImage";
 
 interface TwitterCardProps {
   meta: MetaTags;
@@ -19,9 +20,7 @@ export default function TwitterCard({ meta, url }: TwitterCardProps) {
   })();
   const isLargeCard = meta.twitterCard === "summary_large_image" || !!image;
 
-  // Current X/Twitter design (2025):
-  // summary_large_image: full-width image, title overlaid as pill at bottom-left, domain below card
-  // summary: square thumbnail left, title + description right
+  const fontStack = 'Chirp, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
 
   if (isLargeCard && image) {
     return (
@@ -34,35 +33,19 @@ export default function TwitterCard({ meta, url }: TwitterCardProps) {
             className="relative overflow-hidden rounded-2xl border border-[#CFD9DE] dark:border-[#2F3336] bg-white dark:bg-black"
             style={{ aspectRatio: "504/252" }}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={image}
-              alt=""
-              className="w-full h-full object-cover"
-              onError={(e) => {
-                (e.target as HTMLImageElement).style.display = "none";
-              }}
-            />
-            {/* Title overlay pill at bottom-left */}
+            <PreviewImage src={image} className="w-full h-full" />
             <div className="absolute bottom-3 left-3 max-w-[calc(100%-24px)]">
               <span
                 className="inline-block px-2 py-0.5 text-[13px] leading-5 text-white bg-black/70 rounded truncate max-w-full"
-                style={{
-                  fontFamily:
-                    'Chirp, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
-                }}
+                style={{ fontFamily: fontStack }}
               >
                 {title}
               </span>
             </div>
           </div>
-          {/* Domain below card */}
           <p
             className="text-[13px] text-[#536471] dark:text-[#71767B] mt-1.5"
-            style={{
-              fontFamily:
-                'Chirp, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
-            }}
+            style={{ fontFamily: fontStack }}
           >
             From {domain}
           </p>
@@ -71,7 +54,6 @@ export default function TwitterCard({ meta, url }: TwitterCardProps) {
     );
   }
 
-  // summary card (small): square thumbnail left, text right
   const description =
     meta.twitterDescription || meta.ogDescription || meta.description || "";
 
@@ -83,35 +65,18 @@ export default function TwitterCard({ meta, url }: TwitterCardProps) {
       <div className="max-w-[504px]">
         <div
           className="overflow-hidden rounded-2xl border border-[#CFD9DE] dark:border-[#2F3336] bg-white dark:bg-black flex"
-          style={{
-            fontFamily:
-              'Chirp, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
-          }}
+          style={{ fontFamily: fontStack }}
         >
           {image && (
             <div className="w-[144px] min-h-[144px] bg-neutral-100 dark:bg-neutral-900 flex-shrink-0 overflow-hidden border-r border-[#CFD9DE] dark:border-[#2F3336]">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={image}
-                alt=""
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = "none";
-                }}
-              />
+              <PreviewImage src={image} className="w-full h-full" />
             </div>
           )}
           <div className="px-3 py-2.5 min-w-0 flex flex-col justify-center">
-            <p className="text-[13px] text-[#536471] dark:text-[#71767B] truncate">
-              {domain}
-            </p>
-            <p className="text-[15px] text-[#0F1419] dark:text-[#E7E9EA] truncate leading-5 mt-0.5">
-              {title}
-            </p>
+            <p className="text-[13px] text-[#536471] dark:text-[#71767B] truncate">{domain}</p>
+            <p className="text-[15px] text-[#0F1419] dark:text-[#E7E9EA] truncate leading-5 mt-0.5">{title}</p>
             {description && (
-              <p className="text-[13px] text-[#536471] dark:text-[#71767B] line-clamp-2 leading-[18px] mt-0.5">
-                {description}
-              </p>
+              <p className="text-[13px] text-[#536471] dark:text-[#71767B] line-clamp-2 leading-[18px] mt-0.5">{description}</p>
             )}
           </div>
         </div>

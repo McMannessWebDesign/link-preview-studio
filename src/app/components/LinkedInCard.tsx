@@ -1,6 +1,7 @@
 "use client";
 
 import type { MetaTags } from "../types";
+import PreviewImage from "./PreviewImage";
 
 interface LinkedInCardProps {
   meta: MetaTags;
@@ -19,12 +20,6 @@ export default function LinkedInCard({ meta, url }: LinkedInCardProps) {
     }
   })();
 
-  // Current LinkedIn organic design (2025):
-  // Compact horizontal: small thumbnail LEFT, title + domain RIGHT
-  // Border: 1px solid, ~8px radius
-  // Text area background: #F3F2EF (warm gray) in light, ~#38434F in dark
-  // Font: LinkedIn Sans / system fallback
-
   const fontStack =
     '-apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
 
@@ -40,15 +35,7 @@ export default function LinkedInCard({ meta, url }: LinkedInCardProps) {
         {/* Thumbnail on left — grey placeholder with icon when no image (matches real LinkedIn) */}
         <div className="w-[128px] min-h-[72px] bg-neutral-100 dark:bg-neutral-800 flex-shrink-0 overflow-hidden flex items-center justify-center">
           {image ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={image}
-              alt=""
-              className="w-full h-full object-cover"
-              onError={(e) => {
-                (e.target as HTMLImageElement).style.display = "none";
-              }}
-            />
+            <PreviewImage src={image} className="w-full h-full" />
           ) : (
             <svg
               className="w-8 h-8 text-neutral-400"

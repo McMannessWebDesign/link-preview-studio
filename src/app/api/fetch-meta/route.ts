@@ -6,13 +6,24 @@ const TIMEOUT_MS = 10000;
 const MAX_RESPONSE_BYTES = 5 * 1024 * 1024; // 5MB cap
 const MAX_META_LENGTH = 500; // Truncate excessively long meta values
 
-// #9 Simple in-memory rate limiting (per IP, 20 requests per minute)
+// #9 In-memory rate limiting with cleanup (per IP, 20 requests per minute)
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX = 20;
+const RATE_LIMIT_CLEANUP_INTERVAL = 5 * 60_000; // Clean stale entries every 5 min
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+let lastCleanup = Date.now();
 
 function checkRateLimit(ip: string): boolean {
   const now = Date.now();
+
+  // #2 Periodic cleanup of expired entries to prevent memory leak
+  if (now - lastCleanup > RATE_LIMIT_CLEANUP_INTERVAL) {
+    for (const [key, entry] of rateLimitMap) {
+      if (now > entry.resetAt) rateLimitMap.delete(key);
+    }
+    lastCleanup = now;
+  }
+
   const entry = rateLimitMap.get(ip);
   if (!entry || now > entry.resetAt) {
     rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });

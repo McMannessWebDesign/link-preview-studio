@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { FetchResult, HistoryEntry } from "./types";
-import { META_TAG_LABELS } from "./types";
 import UrlInput from "./components/UrlInput";
 import TwitterCard from "./components/TwitterCard";
 import SlackCard from "./components/SlackCard";
@@ -24,9 +23,11 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [copiedHtml, setCopiedHtml] = useState(false);
+  const [lastSubmittedUrl, setLastSubmittedUrl] = useState("");
 
   const requestIdRef = useRef(0);
 
+  // Load history from localStorage
   useEffect(() => {
     try {
       const stored = localStorage.getItem(HISTORY_KEY);
@@ -36,6 +37,17 @@ export default function Home() {
     } catch {
       // localStorage unavailable or corrupt
     }
+  }, []);
+
+  // #5 Shareable URL via query param — check on mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const urlParam = params.get("url");
+    if (urlParam) {
+      setInputUrl(urlParam);
+      handleSubmit(urlParam);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // #11 Update tab title when viewing results
@@ -53,6 +65,7 @@ export default function Home() {
     }
   }, [result]);
 
+  // #3 Fix stale closure — use functional state update
   const saveHistory = useCallback((entries: HistoryEntry[]) => {
     setHistory(entries);
     try {
@@ -64,11 +77,18 @@ export default function Home() {
 
   const addToHistory = useCallback(
     (entry: HistoryEntry) => {
-      const filtered = history.filter((h) => h.url !== entry.url);
-      const updated = [entry, ...filtered].slice(0, MAX_HISTORY);
-      saveHistory(updated);
+      setHistory((prev) => {
+        const filtered = prev.filter((h) => h.url !== entry.url);
+        const updated = [entry, ...filtered].slice(0, MAX_HISTORY);
+        try {
+          localStorage.setItem(HISTORY_KEY, JSON.stringify(updated));
+        } catch {
+          // localStorage full
+        }
+        return updated;
+      });
     },
-    [history, saveHistory]
+    []
   );
 
   const handleSubmit = async (url: string) => {
@@ -77,6 +97,11 @@ export default function Home() {
     setIsLoading(true);
     setError(null);
     setResult(null);
+    setLastSubmittedUrl(url);
+
+    // #5 Update URL bar for shareability (without page reload)
+    const newUrl = `${window.location.pathname}?url=${encodeURIComponent(url)}`;
+    window.history.replaceState({}, "", newUrl);
 
     try {
       const response = await fetch("/api/fetch-meta", {
@@ -112,7 +137,20 @@ export default function Home() {
     }
   };
 
-  // #7 Example URL handler
+  // #8 Retry last failed request
+  const handleRetry = () => {
+    if (lastSubmittedUrl) {
+      handleSubmit(lastSubmittedUrl);
+    }
+  };
+
+  // #9 Re-fetch current result
+  const handleRefresh = () => {
+    if (result) {
+      handleSubmit(result.url);
+    }
+  };
+
   const handleExampleSelect = (url: string) => {
     setInputUrl(url);
     handleSubmit(url);
@@ -126,6 +164,9 @@ export default function Home() {
     });
     setInputUrl(entry.url);
     setError(null);
+    // Update URL bar
+    const newUrl = `${window.location.pathname}?url=${encodeURIComponent(entry.url)}`;
+    window.history.replaceState({}, "", newUrl);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -136,8 +177,8 @@ export default function Home() {
   // #8 Copy all meta tags as HTML snippet
   const handleCopyMetaHtml = async () => {
     if (!result) return;
-    const lines: string[] = [];
     const m = result.meta;
+    const lines: string[] = [];
     if (m.title) lines.push(`<title>${m.title}</title>`);
     if (m.description) lines.push(`<meta name="description" content="${m.description}">`);
     if (m.ogTitle) lines.push(`<meta property="og:title" content="${m.ogTitle}">`);
@@ -206,14 +247,14 @@ export default function Home() {
           <UrlInput url={inputUrl} onUrlChange={setInputUrl} onSubmit={handleSubmit} isLoading={isLoading} />
         </div>
 
-        {/* #7 Example URLs for first-time users */}
+        {/* Example URLs for first-time users */}
         {showExamples && (
           <div className="mb-8">
             <ExampleUrls onSelect={handleExampleSelect} />
           </div>
         )}
 
-        {/* #10 Accessible live region for screen readers */}
+        {/* Accessible live region for screen readers */}
         <div aria-live="polite" aria-atomic="true" className="sr-only">
           {isLoading && "Loading preview..."}
           {error && `Error: ${error}`}
@@ -223,27 +264,38 @@ export default function Home() {
         {/* Error */}
         {error && (
           <div className="mb-8">
-            <ErrorMessage message={error} />
+            <ErrorMessage message={error} onRetry={handleRetry} />
           </div>
         )}
 
-        {/* #6 Loading skeleton */}
+        {/* Loading skeleton */}
         {isLoading && <LoadingSkeleton />}
 
         {/* Results */}
         {result && (
           <div className="space-y-10 mb-12">
-            {/* #4 Show final URL if redirected */}
-            {result.finalUrl && (
-              <div className="text-center">
+            {/* Redirect notice + re-fetch button */}
+            <div className="flex items-center justify-center gap-4 flex-wrap">
+              {result.finalUrl && (
                 <p className="text-sm text-neutral-500 dark:text-neutral-400">
                   Redirected to:{" "}
                   <span className="font-mono text-neutral-700 dark:text-neutral-300">
                     {result.finalUrl}
                   </span>
                 </p>
-              </div>
-            )}
+              )}
+              {/* #9 Re-fetch button */}
+              <button
+                onClick={handleRefresh}
+                disabled={isLoading}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition-colors duration-150 disabled:opacity-50"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Re-fetch
+              </button>
+            </div>
 
             {/* Preview Cards */}
             <div>
@@ -261,7 +313,6 @@ export default function Home() {
             <div>
               <HealthScore meta={result.meta} />
 
-              {/* #8 Copy all meta tags as HTML */}
               <div className="w-full max-w-2xl mx-auto mt-4">
                 <button
                   onClick={handleCopyMetaHtml}

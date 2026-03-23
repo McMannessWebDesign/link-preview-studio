@@ -2,9 +2,10 @@
 
 interface ErrorMessageProps {
   message: string;
+  onRetry?: () => void;
 }
 
-export default function ErrorMessage({ message }: ErrorMessageProps) {
+export default function ErrorMessage({ message, onRetry }: ErrorMessageProps) {
   return (
     <div className="w-full max-w-2xl mx-auto">
       <div className="flex items-start gap-3 p-4 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50">
@@ -19,7 +20,7 @@ export default function ErrorMessage({ message }: ErrorMessageProps) {
             clipRule="evenodd"
           />
         </svg>
-        <div>
+        <div className="flex-1">
           <p className="text-sm font-medium text-red-800 dark:text-red-300">
             Something went wrong
           </p>
@@ -27,6 +28,14 @@ export default function ErrorMessage({ message }: ErrorMessageProps) {
             {message}
           </p>
         </div>
+        {onRetry && (
+          <button
+            onClick={onRetry}
+            className="flex-shrink-0 px-3 py-1.5 text-sm font-medium text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/40 hover:bg-red-200 dark:hover:bg-red-900/60 rounded-lg transition-colors duration-150"
+          >
+            Try again
+          </button>
+        )}
       </div>
     </div>
   );

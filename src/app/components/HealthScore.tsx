@@ -144,7 +144,7 @@ export default function HealthScore({ meta }: HealthScoreProps) {
             {check.present && (
               <button
                 onClick={() => copyToClipboard(check.key, check.value)}
-                className="opacity-0 group-hover:opacity-100 flex-shrink-0 p-1 rounded hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-all duration-150"
+                className="sm:opacity-0 sm:group-hover:opacity-100 flex-shrink-0 p-1 rounded hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-all duration-150"
                 title="Copy value"
               >
                 {copiedKey === check.key ? (
