@@ -3,6 +3,53 @@ import * as cheerio from "cheerio";
 import type { MetaTags } from "../../types";
 
 const TIMEOUT_MS = 10000;
+const MAX_RESPONSE_BYTES = 5 * 1024 * 1024; // 5MB cap
+const MAX_META_LENGTH = 500; // Truncate excessively long meta values
+
+// #1 SSRF Protection — block private/internal network addresses
+const BLOCKED_HOSTNAMES = new Set([
+  "localhost",
+  "0.0.0.0",
+  "metadata.google.internal",
+]);
+
+function isPrivateIP(hostname: string): boolean {
+  // Block reserved hostnames
+  if (BLOCKED_HOSTNAMES.has(hostname.toLowerCase())) return true;
+
+  // IPv4 patterns for private/reserved ranges
+  const ipv4Match = hostname.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (ipv4Match) {
+    const [, a, b] = ipv4Match.map(Number);
+    if (a === 127) return true;                    // 127.0.0.0/8 loopback
+    if (a === 10) return true;                     // 10.0.0.0/8 private
+    if (a === 172 && b >= 16 && b <= 31) return true; // 172.16.0.0/12 private
+    if (a === 192 && b === 168) return true;       // 192.168.0.0/16 private
+    if (a === 169 && b === 254) return true;       // 169.254.0.0/16 link-local (AWS metadata)
+    if (a === 0) return true;                      // 0.0.0.0/8
+  }
+
+  // IPv6 loopback
+  if (hostname === "::1" || hostname === "[::1]") return true;
+
+  return false;
+}
+
+// #2 Protocol restriction — only allow http and https
+function isAllowedProtocol(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+// #6 Truncate excessively long meta content
+function truncateMeta(value: string): string {
+  if (value.length <= MAX_META_LENGTH) return value;
+  return value.slice(0, MAX_META_LENGTH) + "…";
+}
 
 function resolveUrl(base: string, path: string): string {
   if (!path) return "";
@@ -11,6 +58,33 @@ function resolveUrl(base: string, path: string): string {
   } catch {
     return path;
   }
+}
+
+// #3 Read response body with size limit
+async function readBodyWithLimit(response: Response, limit: number): Promise<string> {
+  const reader = response.body?.getReader();
+  if (!reader) {
+    return await response.text();
+  }
+
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    totalBytes += value.byteLength;
+    if (totalBytes > limit) {
+      reader.cancel();
+      throw new Error("RESPONSE_TOO_LARGE");
+    }
+    chunks.push(value);
+  }
+
+  const decoder = new TextDecoder("utf-8", { fatal: false });
+  return chunks.map((chunk) => decoder.decode(chunk, { stream: true })).join("") +
+    decoder.decode();
 }
 
 export async function POST(request: NextRequest) {
@@ -31,15 +105,32 @@ export async function POST(request: NextRequest) {
   }
 
   // Prepend https:// if no protocol
-  if (!/^https?:\/\//i.test(url)) {
+  if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//i.test(url)) {
     url = `https://${url}`;
   }
 
+  // #2 Protocol restriction
+  if (!isAllowedProtocol(url)) {
+    return NextResponse.json(
+      { error: "Only http:// and https:// URLs are supported." },
+      { status: 400 }
+    );
+  }
+
+  let parsed: URL;
   try {
-    new URL(url);
+    parsed = new URL(url);
   } catch {
     return NextResponse.json(
       { error: "Invalid URL format." },
+      { status: 400 }
+    );
+  }
+
+  // #1 SSRF Protection
+  if (isPrivateIP(parsed.hostname)) {
+    return NextResponse.json(
+      { error: "URLs pointing to private or internal network addresses are not allowed." },
       { status: 400 }
     );
   }
@@ -61,6 +152,20 @@ export async function POST(request: NextRequest) {
     });
 
     clearTimeout(timeout);
+
+    // #5 Check final URL after redirects for SSRF (redirect could land on internal IP)
+    const finalUrl = response.url || url;
+    try {
+      const finalParsed = new URL(finalUrl);
+      if (isPrivateIP(finalParsed.hostname)) {
+        return NextResponse.json(
+          { error: "The URL redirected to a private or internal network address." },
+          { status: 400 }
+        );
+      }
+    } catch {
+      // If we can't parse the final URL, continue with the original
+    }
 
     if (!response.ok) {
       const statusMessages: Record<number, string> = {
@@ -84,20 +189,40 @@ export async function POST(request: NextRequest) {
     }
 
     const contentType = response.headers.get("content-type") || "";
-    if (!contentType.includes("text/html")) {
+    if (!contentType.includes("text/html") && !contentType.includes("application/xhtml+xml")) {
+      // #5 Better message for redirect-to-non-HTML
+      const contentDesc =
+        contentType.includes("pdf") ? "a PDF document" :
+        contentType.includes("image") ? "an image" :
+        contentType.includes("json") ? "a JSON response" :
+        contentType.includes("xml") ? "an XML document" :
+        contentType.includes("text/plain") ? "a plain text file" :
+        `a non-HTML response (${contentType.split(";")[0].trim()})`;
       return NextResponse.json(
-        { error: "URL did not return an HTML page." },
+        { error: `This URL returned ${contentDesc} instead of an HTML page.` },
         { status: 422 }
       );
     }
 
-    const html = await response.text();
+    // #3 Read body with size limit
+    let html: string;
+    try {
+      html = await readBodyWithLimit(response, MAX_RESPONSE_BYTES);
+    } catch (err) {
+      if (err instanceof Error && err.message === "RESPONSE_TOO_LARGE") {
+        return NextResponse.json(
+          { error: "The page is too large to process (exceeds 5MB). Try a different URL." },
+          { status: 422 }
+        );
+      }
+      throw err;
+    }
+
     const $ = cheerio.load(html);
 
     const getMeta = (attr: string, value: string): string => {
-      return (
-        $(`meta[${attr}="${value}"]`).attr("content") || ""
-      );
+      const content = $(`meta[${attr}="${value}"]`).attr("content") || "";
+      return truncateMeta(content); // #6 Truncate long values
     };
 
     const ogImage = getMeta("property", "og:image");
@@ -109,7 +234,7 @@ export async function POST(request: NextRequest) {
       "";
 
     const meta: MetaTags = {
-      title: $("title").first().text().trim(),
+      title: truncateMeta($("title").first().text().trim()), // #6
       description: getMeta("name", "description"),
       ogTitle: getMeta("property", "og:title"),
       ogDescription: getMeta("property", "og:description"),
@@ -124,6 +249,7 @@ export async function POST(request: NextRequest) {
       themeColor: getMeta("name", "theme-color"),
     };
 
+    // #10 Return the normalized URL so the client can display it
     return NextResponse.json({
       url,
       meta,
@@ -189,10 +315,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generic "fetch failed" — provide a more helpful message
+    // Generic "fetch failed"
     if (message === "fetch failed") {
       return NextResponse.json(
-        { error: `Could not reach this URL — the site may be down, blocking automated requests, or the domain may not exist.` },
+        { error: "Could not reach this URL — the site may be down, blocking automated requests, or the domain may not exist." },
         { status: 422 }
       );
     }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import type { FetchResult, HistoryEntry } from "./types";
 import UrlInput from "./components/UrlInput";
 import TwitterCard from "./components/TwitterCard";
@@ -20,6 +20,9 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
+
+  // #4 Double-submit prevention — track current request to ignore stale responses
+  const requestIdRef = useRef(0);
 
   useEffect(() => {
     try {
@@ -51,6 +54,9 @@ export default function Home() {
   );
 
   const handleSubmit = async (url: string) => {
+    // #4 Increment request ID — only the latest request will update state
+    const thisRequestId = ++requestIdRef.current;
+
     setIsLoading(true);
     setError(null);
     setResult(null);
@@ -62,6 +68,9 @@ export default function Home() {
         body: JSON.stringify({ url }),
       });
 
+      // #4 If a newer request was fired, discard this response
+      if (thisRequestId !== requestIdRef.current) return;
+
       const data = await response.json();
 
       if (!response.ok) {
@@ -70,15 +79,22 @@ export default function Home() {
       }
 
       setResult(data);
+
+      // #10 Update the input to show the normalized URL (with https:// prepended)
+      setInputUrl(data.url);
+
       addToHistory({
         url: data.url,
         meta: data.meta,
         fetchedAt: data.fetchedAt,
       });
     } catch {
+      if (thisRequestId !== requestIdRef.current) return;
       setError("Network error. Please check your connection and try again.");
     } finally {
-      setIsLoading(false);
+      if (thisRequestId === requestIdRef.current) {
+        setIsLoading(false);
+      }
     }
   };
 
