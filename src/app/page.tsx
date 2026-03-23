@@ -273,7 +273,7 @@ export default function Home() {
 
         {/* Results */}
         {result && (
-          <div className="space-y-10 mb-12">
+          <div className="space-y-10 mb-12 results-enter">
             {/* Redirect notice + re-fetch button */}
             <div className="flex items-center justify-center gap-4 flex-wrap">
               {result.finalUrl && (

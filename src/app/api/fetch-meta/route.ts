@@ -277,6 +277,8 @@ export async function POST(request: NextRequest) {
       ogTitle: getMeta("property", "og:title"),
       ogDescription: getMeta("property", "og:description"),
       ogImage: ogImage ? resolveUrl(url, ogImage) : "",
+      ogImageWidth: getMeta("property", "og:image:width"),
+      ogImageHeight: getMeta("property", "og:image:height"),
       ogUrl: getMeta("property", "og:url"),
       twitterCard: getMeta("name", "twitter:card") || getMeta("property", "twitter:card"),
       twitterTitle: getMeta("name", "twitter:title") || getMeta("property", "twitter:title"),

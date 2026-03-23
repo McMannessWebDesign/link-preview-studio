@@ -8,6 +8,28 @@ interface HistoryProps {
   onClear: () => void;
 }
 
+// #2 Relative time formatting
+function relativeTime(dateStr: string): string {
+  const now = Date.now();
+  const then = new Date(dateStr).getTime();
+  const diff = now - then;
+
+  const seconds = Math.floor(diff / 1000);
+  if (seconds < 60) return "just now";
+
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+
+  // Fall back to short date
+  return new Date(dateStr).toLocaleDateString();
+}
+
 export default function History({ entries, onSelect, onClear }: HistoryProps) {
   if (entries.length === 0) return null;
 
@@ -35,7 +57,7 @@ export default function History({ entries, onSelect, onClear }: HistoryProps) {
           })();
           const title =
             entry.meta.ogTitle || entry.meta.title || domain;
-          const time = new Date(entry.fetchedAt).toLocaleString();
+          const time = relativeTime(entry.fetchedAt);
 
           return (
             <button
@@ -76,7 +98,7 @@ export default function History({ entries, onSelect, onClear }: HistoryProps) {
                 </p>
                 <p className="text-xs text-neutral-400 truncate">{domain}</p>
               </div>
-              <span className="text-xs text-neutral-400 flex-shrink-0 hidden sm:block">
+              <span className="text-xs text-neutral-400 flex-shrink-0">
                 {time}
               </span>
               <svg
