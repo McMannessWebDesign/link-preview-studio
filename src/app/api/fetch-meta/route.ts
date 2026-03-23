@@ -52,8 +52,10 @@ export async function POST(request: NextRequest) {
       signal: controller.signal,
       headers: {
         "User-Agent":
-          "Mozilla/5.0 (compatible; LinkPreviewStudio/1.0; +https://github.com)",
-        Accept: "text/html,application/xhtml+xml",
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        Accept:
+          "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
       },
       redirect: "follow",
     });
@@ -61,8 +63,22 @@ export async function POST(request: NextRequest) {
     clearTimeout(timeout);
 
     if (!response.ok) {
+      const statusMessages: Record<number, string> = {
+        400: "Bad Request — the server did not understand the request.",
+        401: "Unauthorized — this page requires authentication.",
+        403: "Forbidden — the server refused the request. The site may be blocking automated access.",
+        404: "Not Found — no page exists at this URL.",
+        405: "Method Not Allowed — the server rejected the request method.",
+        410: "Gone — this page has been permanently removed.",
+        429: "Too Many Requests — the server is rate-limiting requests. Try again later.",
+        500: "Internal Server Error — something went wrong on the target server.",
+        502: "Bad Gateway — the server received an invalid response from an upstream server.",
+        503: "Service Unavailable — the target server is temporarily down or overloaded.",
+        504: "Gateway Timeout — the target server took too long to respond.",
+      };
+      const msg = statusMessages[response.status] || `The server returned HTTP ${response.status}.`;
       return NextResponse.json(
-        { error: `Failed to fetch URL: HTTP ${response.status}` },
+        { error: `HTTP ${response.status}: ${msg}` },
         { status: 422 }
       );
     }
