@@ -1,14 +1,13 @@
 "use client";
 
-import { useState } from "react";
-
 interface UrlInputProps {
+  url: string;
+  onUrlChange: (url: string) => void;
   onSubmit: (url: string) => void;
   isLoading: boolean;
 }
 
-export default function UrlInput({ onSubmit, isLoading }: UrlInputProps) {
-  const [url, setUrl] = useState("");
+export default function UrlInput({ url, onUrlChange, onSubmit, isLoading }: UrlInputProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,7 +38,7 @@ export default function UrlInput({ onSubmit, isLoading }: UrlInputProps) {
           <input
             type="text"
             value={url}
-            onChange={(e) => setUrl(e.target.value)}
+            onChange={(e) => onUrlChange(e.target.value)}
             placeholder="Paste any URL... e.g. https://github.com"
             className="w-full pl-12 pr-4 py-3.5 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
             disabled={isLoading}

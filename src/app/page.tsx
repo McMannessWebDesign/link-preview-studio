@@ -15,6 +15,7 @@ const HISTORY_KEY = "lps-history";
 const MAX_HISTORY = 10;
 
 export default function Home() {
+  const [inputUrl, setInputUrl] = useState("");
   const [result, setResult] = useState<FetchResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -87,7 +88,9 @@ export default function Home() {
       meta: entry.meta,
       fetchedAt: entry.fetchedAt,
     });
+    setInputUrl(entry.url);
     setError(null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleClearHistory = () => {
@@ -138,7 +141,7 @@ export default function Home() {
 
         {/* URL Input */}
         <div className="mb-8">
-          <UrlInput onSubmit={handleSubmit} isLoading={isLoading} />
+          <UrlInput url={inputUrl} onUrlChange={setInputUrl} onSubmit={handleSubmit} isLoading={isLoading} />
         </div>
 
         {/* Error */}
