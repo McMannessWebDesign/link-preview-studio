@@ -1,65 +1,191 @@
-import Image from "next/image";
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import type { FetchResult, HistoryEntry } from "./types";
+import UrlInput from "./components/UrlInput";
+import TwitterCard from "./components/TwitterCard";
+import SlackCard from "./components/SlackCard";
+import LinkedInCard from "./components/LinkedInCard";
+import HealthScore from "./components/HealthScore";
+import History from "./components/History";
+import DarkModeToggle from "./components/DarkModeToggle";
+import ErrorMessage from "./components/ErrorMessage";
+
+const HISTORY_KEY = "lps-history";
+const MAX_HISTORY = 10;
 
 export default function Home() {
+  const [result, setResult] = useState<FetchResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(HISTORY_KEY);
+      if (stored) {
+        setHistory(JSON.parse(stored));
+      }
+    } catch {
+      // localStorage unavailable or corrupt
+    }
+  }, []);
+
+  const saveHistory = useCallback((entries: HistoryEntry[]) => {
+    setHistory(entries);
+    try {
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(entries));
+    } catch {
+      // localStorage full or unavailable
+    }
+  }, []);
+
+  const addToHistory = useCallback(
+    (entry: HistoryEntry) => {
+      const filtered = history.filter((h) => h.url !== entry.url);
+      const updated = [entry, ...filtered].slice(0, MAX_HISTORY);
+      saveHistory(updated);
+    },
+    [history, saveHistory]
+  );
+
+  const handleSubmit = async (url: string) => {
+    setIsLoading(true);
+    setError(null);
+    setResult(null);
+
+    try {
+      const response = await fetch("/api/fetch-meta", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.error || "An unexpected error occurred.");
+        return;
+      }
+
+      setResult(data);
+      addToHistory({
+        url: data.url,
+        meta: data.meta,
+        fetchedAt: data.fetchedAt,
+      });
+    } catch {
+      setError("Network error. Please check your connection and try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleHistorySelect = (entry: HistoryEntry) => {
+    setResult({
+      url: entry.url,
+      meta: entry.meta,
+      fetchedAt: entry.fetchedAt,
+    });
+    setError(null);
+  };
+
+  const handleClearHistory = () => {
+    saveHistory([]);
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <div className="min-h-screen flex flex-col">
+      {/* Header */}
+      <header className="border-b border-neutral-200 dark:border-neutral-800">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
+              <svg
+                className="w-4 h-4 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+                />
+              </svg>
+            </div>
+            <h1 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
+              Link Preview Studio
+            </h1>
+          </div>
+          <DarkModeToggle />
+        </div>
+      </header>
+
+      {/* Main */}
+      <main className="flex-1 max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12 w-full">
+        {/* Hero */}
+        <div className="text-center mb-8">
+          <h2 className="text-2xl sm:text-3xl font-bold text-neutral-900 dark:text-neutral-100 mb-2">
+            Preview how your links appear everywhere
+          </h2>
+          <p className="text-neutral-500 dark:text-neutral-400 max-w-lg mx-auto">
+            Paste a URL to see its Open Graph meta tags and preview how it looks
+            when shared on Twitter/X, Slack, and LinkedIn.
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        {/* URL Input */}
+        <div className="mb-8">
+          <UrlInput onSubmit={handleSubmit} isLoading={isLoading} />
+        </div>
+
+        {/* Error */}
+        {error && (
+          <div className="mb-8">
+            <ErrorMessage message={error} />
+          </div>
+        )}
+
+        {/* Results */}
+        {result && (
+          <div className="space-y-10 mb-12">
+            {/* Preview Cards */}
+            <div>
+              <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-6 text-center">
+                Platform Previews
+              </h2>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <TwitterCard meta={result.meta} url={result.url} />
+                <SlackCard meta={result.meta} url={result.url} />
+                <LinkedInCard meta={result.meta} url={result.url} />
+              </div>
+            </div>
+
+            {/* Health Score */}
+            <HealthScore meta={result.meta} />
+          </div>
+        )}
+
+        {/* History */}
+        <div className="mt-8">
+          <History
+            entries={history}
+            onSelect={handleHistorySelect}
+            onClear={handleClearHistory}
+          />
         </div>
       </main>
+
+      {/* Footer */}
+      <footer className="border-t border-neutral-200 dark:border-neutral-800 py-6">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 text-center">
+          <p className="text-sm text-neutral-400">
+            Link Preview Studio &mdash; Built by Matthew McManness
+          </p>
+        </div>
+      </footer>
     </div>
   );
 }

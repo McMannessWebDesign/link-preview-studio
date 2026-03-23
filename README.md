@@ -1,36 +1,90 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Link Preview Studio
 
-## Getting Started
+A web tool that lets you paste any URL and instantly see how it will appear when shared on **Twitter/X**, **Slack**, and **LinkedIn**. It extracts Open Graph and meta tags server-side and renders accurate, current platform preview cards.
 
-First, run the development server:
+## Quick Start
 
 ```bash
+git clone <repo-url>
+cd link-preview-studio
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000). That's it.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Features
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Must-Haves
+- **URL input** accepting any publicly accessible URL
+- **Server-side fetch** via Next.js API route (`/api/fetch-meta`) -- no client-side CORS issues
+- **Meta tag extraction**: `og:title`, `og:description`, `og:image`, `og:url`, `twitter:card`, `twitter:title`, `twitter:description`, `twitter:image`, `<title>`, `<meta name="description">`
+- **Three platform preview cards** (Twitter/X, Slack, LinkedIn) styled to match current 2025 designs
+- **URL history** persisting the last 10 checked URLs across page refreshes
+- **Error handling** for bad URLs, timeouts, non-HTML pages, and missing meta tags
 
-## Learn More
+### Bonus Features
+- **Meta tag health score** with visual ring showing completeness percentage
+- **Copy any meta tag value** to clipboard (hover to reveal copy button)
+- **Dark mode** with system preference detection and manual toggle
+- **Mobile-responsive** layout
+- **Smooth animations** on card appearance
 
-To learn more about Next.js, take a look at the following resources:
+## Tech Stack
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Technology | Purpose |
+|-----------|---------|
+| Next.js 16 (App Router) | Framework + API routes |
+| TypeScript | Type safety |
+| Tailwind CSS v4 | Styling |
+| Cheerio | Server-side HTML parsing |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Architecture Decisions
 
-## Deploy on Vercel
+### Server-Side Fetch
+The URL fetch happens in `/api/fetch-meta` (POST route). This avoids CORS restrictions that would block client-side fetches and allows us to set a proper User-Agent header. The endpoint has a 10-second timeout and validates that the response is HTML before parsing.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### URL History Storage
+History is stored in **localStorage**. This was chosen because:
+- It persists across page refreshes (requirement met)
+- Zero setup required -- no database, no accounts
+- Keeps the app self-contained with no external dependencies
+- For a tool used by individual users checking their own URLs, client-side storage is the right scope
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+For a production multi-user version, history would move to a database (Supabase/PostgreSQL) with user authentication.
+
+### Preview Card Accuracy
+Card designs were researched against live platforms and reference tools (opengraph.xyz, metatags.io) as of March 2025:
+- **Twitter/X**: Title overlaid as pill on image bottom-left, domain below card (post-Oct 2023 design)
+- **Slack**: Left border accent, favicon + site name header, blue bold title link
+- **LinkedIn**: Compact horizontal layout (thumbnail left, text right) matching current organic post format
+
+### AI Tool Usage
+This project was built with assistance from Claude (Anthropic). Specific areas where AI was used:
+- Initial project scaffolding and component structure
+- Platform card design research and CSS accuracy
+- Meta tag extraction logic with cheerio
+- Error handling edge cases
+
+All generated code was reviewed and adjusted for accuracy against live platform references.
+
+## Project Structure
+
+```
+src/app/
+  page.tsx                    # Main page (client component)
+  types.ts                    # Shared TypeScript types
+  globals.css                 # Tailwind + animations
+  api/
+    fetch-meta/route.ts       # Server-side URL fetch + parsing
+    health/route.ts           # Health check endpoint
+  components/
+    UrlInput.tsx              # URL input form
+    TwitterCard.tsx           # X/Twitter preview card
+    SlackCard.tsx             # Slack unfurl preview
+    LinkedInCard.tsx          # LinkedIn preview card
+    HealthScore.tsx           # Meta tag completeness checker
+    History.tsx               # Recent URL history
+    DarkModeToggle.tsx        # Theme switcher
+    ErrorMessage.tsx          # Error display
+```
