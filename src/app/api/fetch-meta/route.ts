@@ -116,12 +116,74 @@ export async function POST(request: NextRequest) {
   } catch (err: unknown) {
     if (err instanceof Error && err.name === "AbortError") {
       return NextResponse.json(
-        { error: "Request timed out. The URL took too long to respond." },
+        { error: "Request timed out — the URL took longer than 10 seconds to respond." },
         { status: 408 }
       );
     }
-    const message =
-      err instanceof Error ? err.message : "An unexpected error occurred.";
-    return NextResponse.json({ error: message }, { status: 500 });
+
+    const message = err instanceof Error ? err.message : "";
+    const cause = err instanceof Error && err.cause ? String(err.cause) : "";
+
+    // DNS resolution failure
+    if (cause.includes("ENOTFOUND") || message.includes("ENOTFOUND")) {
+      const hostname = (() => { try { return new URL(url).hostname; } catch { return url; } })();
+      return NextResponse.json(
+        { error: `DNS lookup failed — the domain "${hostname}" does not exist or could not be resolved.` },
+        { status: 422 }
+      );
+    }
+
+    // Connection refused
+    if (cause.includes("ECONNREFUSED") || message.includes("ECONNREFUSED")) {
+      return NextResponse.json(
+        { error: "Connection refused — the server exists but is not accepting connections." },
+        { status: 422 }
+      );
+    }
+
+    // Connection reset
+    if (cause.includes("ECONNRESET") || message.includes("ECONNRESET")) {
+      return NextResponse.json(
+        { error: "Connection reset — the server closed the connection unexpectedly." },
+        { status: 422 }
+      );
+    }
+
+    // SSL/TLS errors
+    if (cause.includes("CERT") || cause.includes("SSL") || message.includes("CERT") || message.includes("SSL")) {
+      return NextResponse.json(
+        { error: "SSL certificate error — the site has an invalid or expired certificate." },
+        { status: 422 }
+      );
+    }
+
+    // Network unreachable
+    if (cause.includes("ENETUNREACH") || message.includes("ENETUNREACH")) {
+      return NextResponse.json(
+        { error: "Network unreachable — could not establish a connection to the server." },
+        { status: 422 }
+      );
+    }
+
+    // Too many redirects
+    if (message.includes("redirect") && message.includes("max")) {
+      return NextResponse.json(
+        { error: "Too many redirects — the URL redirected more times than allowed." },
+        { status: 422 }
+      );
+    }
+
+    // Generic "fetch failed" — provide a more helpful message
+    if (message === "fetch failed") {
+      return NextResponse.json(
+        { error: `Could not reach this URL — the site may be down, blocking automated requests, or the domain may not exist.` },
+        { status: 422 }
+      );
+    }
+
+    return NextResponse.json(
+      { error: message || "An unexpected error occurred while fetching the URL." },
+      { status: 500 }
+    );
   }
 }
