@@ -6,6 +6,22 @@ const TIMEOUT_MS = 10000;
 const MAX_RESPONSE_BYTES = 5 * 1024 * 1024; // 5MB cap
 const MAX_META_LENGTH = 500; // Truncate excessively long meta values
 
+// #9 Simple in-memory rate limiting (per IP, 20 requests per minute)
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_MAX = 20;
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(ip);
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    return true;
+  }
+  entry.count++;
+  return entry.count <= RATE_LIMIT_MAX;
+}
+
 // #1 SSRF Protection — block private/internal network addresses
 const BLOCKED_HOSTNAMES = new Set([
   "localhost",
@@ -88,6 +104,15 @@ async function readBodyWithLimit(response: Response, limit: number): Promise<str
 }
 
 export async function POST(request: NextRequest) {
+  // #9 Rate limiting
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  if (!checkRateLimit(ip)) {
+    return NextResponse.json(
+      { error: "Rate limit exceeded — please wait a minute before trying again." },
+      { status: 429 }
+    );
+  }
+
   let url: string;
 
   try {
@@ -228,10 +253,12 @@ export async function POST(request: NextRequest) {
     const ogImage = getMeta("property", "og:image");
     const twitterImage = getMeta("name", "twitter:image") || getMeta("property", "twitter:image");
 
+    // #2 Favicon: check link tags first, fall back to /favicon.ico
     const faviconEl =
       $('link[rel="icon"]').attr("href") ||
       $('link[rel="shortcut icon"]').attr("href") ||
-      "";
+      $('link[rel="apple-touch-icon"]').attr("href") ||
+      "/favicon.ico"; // Most sites serve this by convention
 
     const meta: MetaTags = {
       title: truncateMeta($("title").first().text().trim()), // #6
@@ -249,9 +276,9 @@ export async function POST(request: NextRequest) {
       themeColor: getMeta("name", "theme-color"),
     };
 
-    // #10 Return the normalized URL so the client can display it
     return NextResponse.json({
       url,
+      finalUrl: finalUrl !== url ? finalUrl : undefined,
       meta,
       fetchedAt: new Date().toISOString(),
     });

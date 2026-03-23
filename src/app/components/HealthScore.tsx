@@ -91,6 +91,13 @@ export default function HealthScore({ meta }: HealthScoreProps) {
               {missing.map((m) => m.label).join(", ")}
             </p>
           )}
+          {/* #12 SPA limitation note when very few tags found */}
+          {score <= 20 && (
+            <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
+              Note: Some sites render meta tags via JavaScript (React, Vue, etc.) which
+              server-side fetching cannot see. The actual tags may differ when viewed in a browser.
+            </p>
+          )}
         </div>
       </div>
 

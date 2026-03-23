@@ -1,5 +1,7 @@
 "use client";
 
+import { useRef, useEffect } from "react";
+
 interface UrlInputProps {
   url: string;
   onUrlChange: (url: string) => void;
@@ -7,11 +9,29 @@ interface UrlInputProps {
   isLoading: boolean;
 }
 
+// #5 Simple client-side URL validation
+function looksLikeUrl(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) return true; // Empty is fine
+  // Has protocol
+  if (/^https?:\/\/.+/i.test(trimmed)) return true;
+  // Looks like a domain (has a dot, no spaces)
+  if (/^[^\s]+\.[^\s]+/.test(trimmed)) return true;
+  return false;
+}
+
 export default function UrlInput({ url, onUrlChange, onSubmit, isLoading }: UrlInputProps) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const isValid = looksLikeUrl(url);
+
+  // #1 Auto-focus on mount
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (url.trim()) {
+    if (url.trim() && isValid) {
       onSubmit(url.trim());
     }
   };
@@ -20,7 +40,6 @@ export default function UrlInput({ url, onUrlChange, onSubmit, isLoading }: UrlI
   const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
     const pasted = e.clipboardData.getData("text").trim();
     if (pasted && !isLoading && !url.trim()) {
-      // Let the paste populate the input first, then submit
       setTimeout(() => {
         onUrlChange(pasted);
         onSubmit(pasted);
@@ -48,18 +67,31 @@ export default function UrlInput({ url, onUrlChange, onSubmit, isLoading }: UrlI
             </svg>
           </div>
           <input
+            ref={inputRef}
             type="text"
             value={url}
             onChange={(e) => onUrlChange(e.target.value)}
             onPaste={handlePaste}
             placeholder="Paste any URL... e.g. https://github.com"
-            className="w-full pl-12 pr-4 py-3.5 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
+            aria-label="URL to preview"
+            aria-invalid={!isValid}
+            className={`w-full pl-12 pr-4 py-3.5 bg-white dark:bg-neutral-800 border rounded-xl text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200 ${
+              !isValid
+                ? "border-red-400 dark:border-red-500 focus:ring-red-400"
+                : "border-neutral-200 dark:border-neutral-700 focus:ring-indigo-500"
+            }`}
             disabled={isLoading}
           />
+          {/* #5 Client-side validation hint */}
+          {!isValid && (
+            <p className="absolute -bottom-5 left-0 text-xs text-red-500">
+              This doesn&apos;t look like a valid URL
+            </p>
+          )}
         </div>
         <button
           type="submit"
-          disabled={isLoading || !url.trim()}
+          disabled={isLoading || !url.trim() || !isValid}
           className="px-6 py-3.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-neutral-300 dark:disabled:bg-neutral-700 text-white font-medium rounded-xl transition-all duration-200 flex items-center gap-2 disabled:cursor-not-allowed"
         >
           {isLoading ? (

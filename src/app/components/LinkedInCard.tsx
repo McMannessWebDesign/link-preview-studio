@@ -37,10 +37,10 @@ export default function LinkedInCard({ meta, url }: LinkedInCardProps) {
         className="overflow-hidden rounded-lg border border-[#E0E0E0] dark:border-[#38434F] bg-white dark:bg-[#1D2226] max-w-[504px] flex"
         style={{ fontFamily: fontStack }}
       >
-        {/* Thumbnail on left */}
-        {image && (
-          <div className="w-[128px] min-h-[72px] bg-neutral-100 dark:bg-neutral-800 flex-shrink-0 overflow-hidden">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
+        {/* Thumbnail on left — grey placeholder with icon when no image (matches real LinkedIn) */}
+        <div className="w-[128px] min-h-[72px] bg-neutral-100 dark:bg-neutral-800 flex-shrink-0 overflow-hidden flex items-center justify-center">
+          {image ? (
+            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={image}
               alt=""
@@ -49,8 +49,22 @@ export default function LinkedInCard({ meta, url }: LinkedInCardProps) {
                 (e.target as HTMLImageElement).style.display = "none";
               }}
             />
-          </div>
-        )}
+          ) : (
+            <svg
+              className="w-8 h-8 text-neutral-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+              />
+            </svg>
+          )}
+        </div>
 
         {/* Text area on right */}
         <div className="px-3 py-2.5 min-w-0 flex-1 bg-[#F3F2EF] dark:bg-[#38434F]">

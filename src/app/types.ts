@@ -16,6 +16,7 @@ export interface MetaTags {
 
 export interface FetchResult {
   url: string;
+  finalUrl?: string; // #4 Final URL after redirects
   meta: MetaTags;
   fetchedAt: string;
 }
