@@ -2,6 +2,8 @@
 
 A web tool that lets you paste any URL and instantly see how it will appear when shared on **Twitter/X**, **Slack**, and **LinkedIn**. It extracts Open Graph and meta tags server-side and renders accurate, current platform preview cards.
 
+**Live:** [https://link-preview-studio.onrender.com](https://link-preview-studio.onrender.com)
+
 ## Quick Start
 
 ```bash
