@@ -21,7 +21,7 @@ Open [http://localhost:3000](http://localhost:3000). That's it.
 - **Meta tag extraction**: `og:title`, `og:description`, `og:image`, `og:url`, `twitter:card`, `twitter:title`, `twitter:description`, `twitter:image`, `<title>`, `<meta name="description">`
 - **Three platform preview cards** (Twitter/X, Slack, LinkedIn) styled to match current 2025 designs
 - **URL history** persisting the last 10 checked URLs across page refreshes
-- **Error handling** for bad URLs, timeouts, non-HTML pages, and missing meta tags
+- **Error handling** with specific messages for DNS failures, timeouts, HTTP errors (403, 404, 500, etc.), non-HTML pages, SSL issues, and connection problems
 
 ### Bonus Features
 - **Meta tag health score** with visual ring showing completeness percentage
@@ -42,7 +42,18 @@ Open [http://localhost:3000](http://localhost:3000). That's it.
 ## Architecture Decisions
 
 ### Server-Side Fetch
-The URL fetch happens in `/api/fetch-meta` (POST route). This avoids CORS restrictions that would block client-side fetches and allows us to set a proper User-Agent header. The endpoint has a 10-second timeout and validates that the response is HTML before parsing.
+The URL fetch happens in `/api/fetch-meta` (POST route). This avoids CORS restrictions that would block client-side fetches. The endpoint uses a realistic browser User-Agent header (mimicking Chrome) because many sites block bot-like requests — this matches how social platforms actually generate their own link previews. The endpoint has a 10-second timeout and validates that the response is HTML before parsing.
+
+### Error Handling
+Errors are caught at multiple levels with specific, actionable messages:
+- **Invalid URL format** — caught before any fetch attempt
+- **DNS failure** — "the domain does not exist or could not be resolved"
+- **Connection refused/reset** — server exists but isn't accepting connections
+- **SSL certificate errors** — invalid or expired certificates
+- **HTTP status codes** — each code (403, 404, 429, 500, 502, 503, etc.) has a specific human-readable explanation
+- **Timeouts** — URL took longer than 10 seconds
+- **Non-HTML content** — URL returned a file instead of a webpage
+- **Generic fallback** — catches edge cases with a helpful message
 
 ### URL History Storage
 History is stored in **localStorage**. This was chosen because:
