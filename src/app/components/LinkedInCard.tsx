@@ -1,17 +1,46 @@
+/**
+ * LinkedInCard.tsx — LinkedIn Preview Card (Client Component)
+ *
+ * Renders a mock-up of how a shared link appears in LinkedIn feed posts.
+ *
+ * LINKEDIN'S LINK PREVIEW FORMAT:
+ * LinkedIn uses a horizontal card layout with:
+ * - A square-ish thumbnail image on the left (128px wide).
+ *   - If no image is available, a placeholder icon is shown instead.
+ * - A text section on the right with a light gray background (#F3F2EF):
+ *   - Title (bold, up to 2 lines, clipped).
+ *   - Description (smaller text, single line, clipped).
+ *   - Domain name at the bottom.
+ *
+ * META TAG FALLBACK CHAIN:
+ * LinkedIn primarily reads Open Graph tags:
+ *   title: og:title → <title> → "No title"
+ *   description: og:description → <meta name="description">
+ *   image: og:image → twitter:image
+ *
+ * DARK MODE HANDLING:
+ * LinkedIn's actual dark mode uses rgba colors. Since Tailwind's `dark:` prefix
+ * toggles classes and can't directly set rgba via inline styles, this component uses
+ * a dual-span technique: one <span> for light mode, one <span> hidden until dark mode.
+ * This ensures the text colors match LinkedIn's actual dark theme.
+ */
 "use client";
 
 import type { MetaTags } from "../types";
 import PreviewImage from "./PreviewImage";
 
 interface LinkedInCardProps {
-  meta: MetaTags;
-  url: string;
+  meta: MetaTags;  // Extracted meta tags from the fetched URL
+  url: string;     // Original URL (used to extract domain for display)
 }
 
 export default function LinkedInCard({ meta, url }: LinkedInCardProps) {
+  // LinkedIn's fallback chain: og tags first, then generic HTML tags
   const title = meta.ogTitle || meta.title || "No title";
   const description = meta.ogDescription || meta.description || "";
   const image = meta.ogImage || meta.twitterImage || "";
+
+  // Extract hostname for display at the bottom of the card
   const domain = (() => {
     try {
       return new URL(url).hostname;
@@ -20,19 +49,35 @@ export default function LinkedInCard({ meta, url }: LinkedInCardProps) {
     }
   })();
 
+  // LinkedIn's system font stack (they don't use a custom font like Twitter's Chirp)
   const fontStack =
     '-apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
 
+  /*
+   * RENDER:
+   * - Section heading "LinkedIn" above the card.
+   * - Horizontal flex layout: image left, text right.
+   * - The text section has LinkedIn's characteristic light gray background.
+   * - Each text element uses the dual-span dark mode technique described above:
+   *   one span visible in light mode, one hidden span visible in dark mode,
+   *   each with appropriate rgba colors matching LinkedIn's actual theme.
+   */
   return (
     <div className="preview-card">
       <h3 className="text-sm font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-3">
         LinkedIn
       </h3>
+      {/* Card container — horizontal flex with image left, text right */}
       <div
         className="overflow-hidden rounded-lg border border-[#E0E0E0] dark:border-[#38434F] bg-white dark:bg-[#1D2226] max-w-[504px] flex"
         style={{ fontFamily: fontStack }}
       >
-        {/* Thumbnail on left — grey placeholder with icon when no image (matches real LinkedIn) */}
+        {/*
+          Thumbnail section (left side):
+          - Fixed 128px width with the image covering the full area.
+          - If no og:image is available, shows a gray placeholder with a link icon
+            to match LinkedIn's actual behavior when a page has no preview image.
+        */}
         <div className="w-[128px] min-h-[72px] bg-neutral-100 dark:bg-neutral-800 flex-shrink-0 overflow-hidden flex items-center justify-center">
           {image ? (
             <PreviewImage src={image} className="w-full h-full" />

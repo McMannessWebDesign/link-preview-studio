@@ -1,14 +1,42 @@
+/**
+ * History.tsx — Recent Checks List (Client Component)
+ *
+ * Displays a list of previously fetched URLs so users can quickly revisit past checks
+ * without re-fetching. The history data is stored in localStorage by the parent (page.tsx)
+ * and passed down as the `entries` prop.
+ *
+ * FEATURES:
+ * - Each entry shows: favicon, title (or domain if no title), domain, and relative time.
+ * - Clicking an entry calls onSelect, which restores the cached result instantly
+ *   (no network request needed — the meta tag data is stored in the history entry).
+ * - A "Clear history" button at the top-right wipes all entries.
+ * - Returns null (renders nothing) if there are no history entries.
+ *
+ * DATA FLOW:
+ * - entries: Array of HistoryEntry objects (url, meta, fetchedAt timestamp).
+ * - onSelect: Callback to restore a cached result in the parent.
+ * - onClear: Callback to wipe all history (parent clears state + localStorage).
+ */
 "use client";
 
 import type { HistoryEntry } from "../types";
 
 interface HistoryProps {
-  entries: HistoryEntry[];
-  onSelect: (entry: HistoryEntry) => void;
-  onClear: () => void;
+  entries: HistoryEntry[];                // Array of past successful fetches
+  onSelect: (entry: HistoryEntry) => void; // Restore this entry as the active result
+  onClear: () => void;                    // Wipe all history
 }
 
-// #2 Relative time formatting
+/**
+ * relativeTime: Converts an ISO date string to a human-friendly relative time label.
+ *
+ * Examples:
+ * - 30 seconds ago → "just now"
+ * - 5 minutes ago  → "5m ago"
+ * - 3 hours ago    → "3h ago"
+ * - 2 days ago     → "2d ago"
+ * - 10 days ago    → "3/14/2026" (falls back to locale date string after 7 days)
+ */
 function relativeTime(dateStr: string): string {
   const now = Date.now();
   const then = new Date(dateStr).getTime();
@@ -26,11 +54,12 @@ function relativeTime(dateStr: string): string {
   const days = Math.floor(hours / 24);
   if (days < 7) return `${days}d ago`;
 
-  // Fall back to short date
+  // Beyond 7 days, show the actual date in the user's locale format
   return new Date(dateStr).toLocaleDateString();
 }
 
 export default function History({ entries, onSelect, onClear }: HistoryProps) {
+  // Render nothing if there's no history — the space is used by ExampleUrls instead
   if (entries.length === 0) return null;
 
   return (

@@ -1,3 +1,38 @@
+/**
+ * HealthScore.tsx — Meta Tag Health Score Panel (Client Component)
+ *
+ * This component evaluates how "healthy" a page's meta tags are by checking which of
+ * the important tags are present vs missing. It renders:
+ *
+ * 1. AN ANIMATED CIRCULAR SCORE (0-100%):
+ *    - Drawn as an SVG ring that fills proportionally to the score.
+ *    - The number animates from 0 to the actual score over 600ms with an ease-out cubic curve.
+ *    - Color-coded: green (>=80%), amber (>=50%), red (<50%).
+ *
+ * 2. A SUMMARY LINE:
+ *    - "X of Y tags present" with the missing tag names listed.
+ *    - A special note for very low scores (<=20%) warning that SPA sites may render
+ *      meta tags via JavaScript, which server-side fetching can't see.
+ *
+ * 3. IMAGE DIMENSION INFO (if og:image exists):
+ *    - Shows the declared og:image:width x og:image:height.
+ *    - Indicates whether the dimensions meet the recommended 1200x630px minimum.
+ *    - If dimensions aren't declared in the meta tags, shows a note about the recommendation.
+ *
+ * 4. A TAG-BY-TAG BREAKDOWN LIST:
+ *    Each row shows:
+ *    - Green checkmark (present) or red X (missing).
+ *    - The tag name (e.g. "og:title").
+ *    - The tag value (truncated if long) or "—" if missing.
+ *    - Character count warning if the value exceeds the recommended length for that tag.
+ *    - An expand button for missing tags that shows a recommendation of what to add.
+ *    - A copy button (appears on hover) to copy the tag value to clipboard.
+ *
+ * DATA SOURCES:
+ * - META_TAG_LABELS: Maps tag keys to human-readable names (defined in types.ts).
+ * - TAG_CHAR_LIMITS: Recommended max character counts per tag (defined in types.ts).
+ * - TAG_RECOMMENDATIONS: Help text for each missing tag (defined in types.ts).
+ */
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -5,17 +40,30 @@ import type { MetaTags } from "../types";
 import { META_TAG_LABELS, TAG_CHAR_LIMITS, TAG_RECOMMENDATIONS } from "../types";
 
 interface HealthScoreProps {
-  meta: MetaTags;
+  meta: MetaTags;  // The meta tags extracted from the fetched URL
 }
 
 export default function HealthScore({ meta }: HealthScoreProps) {
+  /** Tracks which tag's value was just copied (to show a brief "Copied!" checkmark). */
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  /** Tracks which missing tag's recommendation is expanded (or null if none). */
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
 
-  // #4 Animated counter
+  /** The currently displayed score number (animated from 0 to actual score). */
   const [displayScore, setDisplayScore] = useState(0);
+
+  /** Ref to track whether the animation has already played (prevents re-animating on re-render). */
   const animatedRef = useRef(false);
 
+  /**
+   * Build the checklist: For each tag defined in META_TAG_LABELS, check if the
+   * fetched meta tags have a value for it. This creates an array of objects with:
+   * - key: The MetaTags field name (e.g. "ogTitle").
+   * - label: Human-readable label (e.g. "og:title").
+   * - value: The actual tag content, or empty string if missing.
+   * - present: Boolean — whether the tag has a non-empty value.
+   */
   const checks = Object.entries(META_TAG_LABELS).map(([key, label]) => ({
     key,
     label,
@@ -23,48 +71,67 @@ export default function HealthScore({ meta }: HealthScoreProps) {
     present: !!meta[key as keyof MetaTags],
   }));
 
-  const present = checks.filter((c) => c.present);
-  const missing = checks.filter((c) => !c.present);
-  const score = Math.round((present.length / checks.length) * 100);
+  const present = checks.filter((c) => c.present);   // Tags that have values
+  const missing = checks.filter((c) => !c.present);   // Tags that are empty/missing
+  const score = Math.round((present.length / checks.length) * 100); // Percentage score
 
-  // #4 Animate score from 0 to actual value
+  /**
+   * Animated score counter: On first render, animates the displayed number from 0
+   * to the actual score over 600ms using requestAnimationFrame for smooth 60fps updates.
+   * Uses an "ease out cubic" curve (fast start, slow finish) for a polished feel.
+   *
+   * On subsequent renders (e.g. if the user re-fetches the same URL), the animation
+   * is skipped — the score jumps instantly to the new value.
+   */
   useEffect(() => {
     if (animatedRef.current) {
+      // Already animated once — just set the score directly
       setDisplayScore(score);
       return;
     }
     animatedRef.current = true;
     let start = 0;
-    const duration = 600;
+    const duration = 600; // Total animation time in ms
     const startTime = performance.now();
     const animate = (now: number) => {
       const elapsed = now - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-      // Ease out cubic
-      const eased = 1 - Math.pow(1 - progress, 3);
+      const progress = Math.min(elapsed / duration, 1); // 0 → 1
+      const eased = 1 - Math.pow(1 - progress, 3);     // Ease-out cubic curve
       start = Math.round(eased * score);
       setDisplayScore(start);
-      if (progress < 1) requestAnimationFrame(animate);
+      if (progress < 1) requestAnimationFrame(animate); // Keep going until done
     };
     requestAnimationFrame(animate);
   }, [score]);
 
+  // Color-code the score: green for good (>=80%), amber for OK (>=50%), red for poor (<50%)
   const scoreColor =
     score >= 80 ? "text-emerald-500" : score >= 50 ? "text-amber-500" : "text-red-500";
   const ringColor =
     score >= 80 ? "stroke-emerald-500" : score >= 50 ? "stroke-amber-500" : "stroke-red-500";
 
+  /**
+   * copyToClipboard: Copies a tag's value to the clipboard and briefly shows a checkmark
+   * icon on that row. The checkmark auto-clears after 1.5 seconds.
+   */
   const copyToClipboard = async (key: string, value: string) => {
     try {
       await navigator.clipboard.writeText(value);
       setCopiedKey(key);
       setTimeout(() => setCopiedKey(null), 1500);
     } catch {
-      // Clipboard API not available
+      // Clipboard API not available (non-HTTPS or denied)
     }
   };
 
-  // #1 Check character limits
+  /**
+   * getCharWarning: Checks if a tag's value exceeds the recommended character limit.
+   * Returns a warning string like "78 chars (recommended: 60 chars)" if over the limit,
+   * or null if within limits or no limit is defined for this tag.
+   *
+   * Character limits are defined in TAG_CHAR_LIMITS (types.ts) and are based on
+   * platform truncation points (e.g. Google truncates title tags at ~60 chars).
+   */
   const getCharWarning = (key: string, value: string): string | null => {
     const limit = TAG_CHAR_LIMITS[key];
     if (!limit || !value) return null;
@@ -74,7 +141,11 @@ export default function HealthScore({ meta }: HealthScoreProps) {
     return null;
   };
 
-  // #6 Image dimension info
+  /**
+   * imageInfo: Parses og:image:width and og:image:height meta tags (if present) to show
+   * the declared image dimensions and whether they meet the recommended 1200x630px minimum.
+   * Returns null if dimensions aren't declared or can't be parsed as numbers.
+   */
   const imageInfo = (() => {
     const w = meta.ogImageWidth;
     const h = meta.ogImageHeight;

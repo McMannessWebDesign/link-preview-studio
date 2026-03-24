@@ -1,34 +1,72 @@
+/**
+ * UrlInput.tsx — URL Input Form Component (Client Component)
+ *
+ * This is the main input form at the top of the page where users type or paste a URL.
+ *
+ * FEATURES:
+ * - Auto-focuses the input on page load so the user can start typing immediately.
+ * - Client-side URL validation: Shows a red border + hint if the text doesn't look
+ *   like a URL (no dot, has spaces, etc.). This is a UX convenience only — the real
+ *   validation happens server-side in the API route.
+ * - Paste-and-go: When the input is empty and the user pastes a URL, it automatically
+ *   submits without requiring them to click "Preview". Uses setTimeout(0) to defer
+ *   the submit until after React processes the paste event and updates state.
+ * - Loading state: While a fetch is in-flight, the input is disabled and the button
+ *   shows a spinner with "Fetching" text.
+ *
+ * PROPS:
+ * - url:         The current input value (controlled by parent).
+ * - onUrlChange: Called when the user types (parent updates the `url` state).
+ * - onSubmit:    Called when the form is submitted (Enter key or button click).
+ * - isLoading:   Whether a fetch is currently in progress (disables the form).
+ */
 "use client";
 
 import { useRef, useEffect } from "react";
 
+/** TypeScript interface defining the props this component accepts. */
 interface UrlInputProps {
-  url: string;
-  onUrlChange: (url: string) => void;
-  onSubmit: (url: string) => void;
-  isLoading: boolean;
+  url: string;                      // Current value in the input field
+  onUrlChange: (url: string) => void; // Callback when text changes
+  onSubmit: (url: string) => void;    // Callback when form is submitted
+  isLoading: boolean;                 // Whether a fetch is in progress
 }
 
-// #5 Simple client-side URL validation
+/**
+ * looksLikeUrl: Simple client-side heuristic to check if the input looks like a URL.
+ * This is NOT strict URL validation — it's just a UX hint to catch obvious non-URLs
+ * (like typing random words). The server does the real validation.
+ *
+ * Returns true if:
+ * - The input is empty (we don't show an error for an empty field).
+ * - It starts with http:// or https:// followed by something.
+ * - It contains a dot with no spaces (looks like "example.com" or "foo.bar/path").
+ */
 function looksLikeUrl(value: string): boolean {
   const trimmed = value.trim();
-  if (!trimmed) return true; // Empty is fine
-  // Has protocol
-  if (/^https?:\/\/.+/i.test(trimmed)) return true;
-  // Looks like a domain (has a dot, no spaces)
-  if (/^[^\s]+\.[^\s]+/.test(trimmed)) return true;
+  if (!trimmed) return true; // Empty is fine — no error shown
+  if (/^https?:\/\/.+/i.test(trimmed)) return true; // Has protocol
+  if (/^[^\s]+\.[^\s]+/.test(trimmed)) return true;  // Has a dot, no spaces (domain-like)
   return false;
 }
 
 export default function UrlInput({ url, onUrlChange, onSubmit, isLoading }: UrlInputProps) {
+  /** Ref to the <input> element so we can programmatically focus it on mount. */
   const inputRef = useRef<HTMLInputElement>(null);
+
+  /** Run the client-side URL validation on every keystroke. */
   const isValid = looksLikeUrl(url);
 
-  // #1 Auto-focus on mount
+  /** Auto-focus the input when the component first mounts (page load). */
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
 
+  /**
+   * handleSubmit: Called when the <form> is submitted (Enter key or button click).
+   * Prevents the default browser form submission (which would reload the page),
+   * then calls the parent's onSubmit if the input is non-empty and passes validation.
+   */
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (url.trim() && isValid) {
@@ -36,7 +74,18 @@ export default function UrlInput({ url, onUrlChange, onSubmit, isLoading }: UrlI
     }
   };
 
-  // #8 Paste-and-go: auto-submit when a URL is pasted into an empty field
+  /**
+   * handlePaste: "Paste-and-go" feature.
+   * When the user pastes text into an EMPTY input field, this automatically:
+   * 1. Updates the input value to the pasted text.
+   * 2. Immediately submits it (no need to click "Preview").
+   *
+   * The setTimeout(0) is needed because React's synthetic paste event fires BEFORE
+   * the input value is updated. By deferring to the next microtask, we ensure the
+   * state update and submission happen after React has processed the paste.
+   *
+   * Only triggers when: the field is empty, not already loading, and pasted text exists.
+   */
   const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
     const pasted = e.clipboardData.getData("text").trim();
     if (pasted && !isLoading && !url.trim()) {
@@ -47,10 +96,20 @@ export default function UrlInput({ url, onUrlChange, onSubmit, isLoading }: UrlI
     }
   };
 
+  /*
+   * RENDER:
+   * A <form> with a text input and submit button side by side.
+   * - The input has a decorative link icon on the left (absolute positioned, pointer-events-none).
+   * - A validation error message appears below the input when the text doesn't look like a URL.
+   * - The submit button shows a spinner during loading, or a search icon when idle.
+   * - Both the input and button are disabled during loading to prevent double-submits.
+   */
   return (
     <form onSubmit={handleSubmit} className="w-full max-w-2xl mx-auto">
       <div className="flex gap-3">
+        {/* Input container — "relative" to position the link icon and validation hint */}
         <div className="relative flex-1">
+          {/* Decorative link icon inside the input (left side) */}
           <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
             <svg
               className="w-5 h-5 text-neutral-400"
