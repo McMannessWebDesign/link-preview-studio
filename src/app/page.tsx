@@ -42,6 +42,7 @@ import DarkModeToggle from "./components/DarkModeToggle";
 import ErrorMessage from "./components/ErrorMessage";
 import LoadingSkeleton from "./components/LoadingSkeleton";
 import ExampleUrls from "./components/ExampleUrls";
+import UtmBuilder from "./components/UtmBuilder";
 
 /** localStorage key where the recent-checks history array is stored. */
 const HISTORY_KEY = "lps-history";
@@ -395,6 +396,11 @@ export default function Home() {
         {/* URL Input */}
         <div className="mb-8">
           <UrlInput url={inputUrl} onUrlChange={setInputUrl} onSubmit={handleSubmit} isLoading={isLoading} />
+        </div>
+
+        {/* UTM Parameter Builder */}
+        <div className="mb-6">
+          <UtmBuilder baseUrl={inputUrl} onSubmit={handleSubmit} isLoading={isLoading} />
         </div>
 
         {/* Example URLs for first-time users */}

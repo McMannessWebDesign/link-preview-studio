@@ -7,7 +7,7 @@ A web tool that lets you paste any URL and instantly see how it will appear when
 ## Quick Start
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/McMannessWebDesign/link-preview-studio.git
 cd link-preview-studio
 npm install
 npm run dev
@@ -31,6 +31,7 @@ Open [http://localhost:3000](http://localhost:3000). That's it.
 - **Dark mode** with system preference detection and manual toggle
 - **Mobile-responsive** layout
 - **Smooth animations** on card appearance
+- **UTM parameter builder** to append tracking params before previewing
 
 ## Tech Stack
 
