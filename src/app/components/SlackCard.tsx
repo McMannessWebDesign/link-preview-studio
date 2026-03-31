@@ -74,7 +74,7 @@ export default function SlackCard({ meta, url }: SlackCardProps) {
         style={{ fontFamily: 'Lato, "Helvetica Neue", Arial, sans-serif' }}
       >
         {/* The distinctive left colored border that marks Slack unfurls */}
-        <div className="border-l-4 border-neutral-300 dark:border-neutral-600 pl-3">
+        <div className="border-l-4 border-neutral-300 dark:border-neutral-600 pl-3 pr-3 pb-3 pt-2">
           {/* Header: favicon + site name (or domain) */}
           <div className="flex items-center gap-1.5 mb-0.5">
             {favicon && (
