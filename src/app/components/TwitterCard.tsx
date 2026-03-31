@@ -109,10 +109,21 @@ export default function TwitterCard({ meta, url }: TwitterCardProps) {
             </div>
           )}
           <div className="px-3 py-2.5 min-w-0 flex flex-col justify-center">
-            <p className="text-[13px] text-[#536471] dark:text-[#71767B] truncate">{domain}</p>
-            <p className="text-[15px] text-[#0F1419] dark:text-[#E7E9EA] truncate leading-5 mt-0.5">{title}</p>
-            {description && (
-              <p className="text-[13px] text-[#536471] dark:text-[#71767B] line-clamp-2 leading-[18px] mt-0.5">{description}</p>
+            {image ? (
+              // With image: domain → title → description
+              <>
+                <p className="text-[13px] text-[#536471] dark:text-[#71767B] truncate">{domain}</p>
+                <p className="text-[15px] text-[#0F1419] dark:text-[#E7E9EA] truncate leading-5 mt-0.5">{title}</p>
+                {description && (
+                  <p className="text-[13px] text-[#536471] dark:text-[#71767B] line-clamp-2 leading-[18px] mt-0.5">{description}</p>
+                )}
+              </>
+            ) : (
+              // No image: title first, domain below, no description
+              <>
+                <p className="text-[15px] text-[#0F1419] dark:text-[#E7E9EA] truncate leading-5">{title}</p>
+                <p className="text-[13px] text-[#536471] dark:text-[#71767B] truncate mt-0.5">{domain}</p>
+              </>
             )}
           </div>
         </div>
