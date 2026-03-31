@@ -79,25 +79,11 @@ export default function LinkedInCard({ meta, url }: LinkedInCardProps) {
           - If no og:image is available, shows a gray placeholder with a link icon
             to match LinkedIn's actual behavior when a page has no preview image.
         */}
-        <div className="w-[120px] aspect-video self-center bg-neutral-100 dark:bg-neutral-800 flex-shrink-0 overflow-hidden flex items-center justify-center rounded-md m-2">
-          {image ? (
+        {image && (
+          <div className="w-[120px] aspect-video self-center bg-neutral-100 dark:bg-neutral-800 flex-shrink-0 overflow-hidden flex items-center justify-center rounded-md m-2">
             <PreviewImage src={image} className="w-full h-full" />
-          ) : (
-            <svg
-              className="w-8 h-8 text-neutral-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
-              />
-            </svg>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Text area on right */}
         <div className="px-3 py-2.5 min-w-0 flex-1 bg-white dark:bg-[#38434F]">
