@@ -79,7 +79,7 @@ export default function LinkedInCard({ meta, url }: LinkedInCardProps) {
           - If no og:image is available, shows a gray placeholder with a link icon
             to match LinkedIn's actual behavior when a page has no preview image.
         */}
-        <div className="w-[128px] min-h-[72px] bg-neutral-100 dark:bg-neutral-800 flex-shrink-0 overflow-hidden flex items-center justify-center">
+        <div className="w-[100px] h-[100px] self-center bg-neutral-100 dark:bg-neutral-800 flex-shrink-0 overflow-hidden flex items-center justify-center">
           {image ? (
             <PreviewImage src={image} className="w-full h-full" />
           ) : (
