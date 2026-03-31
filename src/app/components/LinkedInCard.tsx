@@ -36,8 +36,9 @@ interface LinkedInCardProps {
 
 export default function LinkedInCard({ meta, url }: LinkedInCardProps) {
   // LinkedIn's fallback chain: og tags first, then generic HTML tags
-  const title = meta.ogTitle || meta.title || "No title";
-  const description = meta.ogDescription || meta.description || "";
+  const baseTitle = meta.ogTitle || meta.title || "No title";
+  // LinkedIn appends " · {site_name}" to the title (e.g. "GitHub · Keep... · GitHub")
+  const title = meta.siteName ? `${baseTitle} · ${meta.siteName}` : baseTitle;
   const image = meta.ogImage || meta.twitterImage || "";
 
   // Extract hostname for display at the bottom of the card
@@ -99,7 +100,7 @@ export default function LinkedInCard({ meta, url }: LinkedInCardProps) {
         </div>
 
         {/* Text area on right */}
-        <div className="px-3 py-2.5 min-w-0 flex-1 bg-[#F3F2EF] dark:bg-[#38434F]">
+        <div className="px-3 py-2.5 min-w-0 flex-1 bg-white dark:bg-[#38434F]">
           <p
             className="text-[14px] font-semibold leading-5 line-clamp-2"
             style={{ color: "rgba(0,0,0,0.9)" }}
@@ -109,19 +110,8 @@ export default function LinkedInCard({ meta, url }: LinkedInCardProps) {
               {title}
             </span>
           </p>
-          {description && (
-            <p
-              className="text-[12px] leading-4 mt-0.5 line-clamp-1"
-              style={{ color: "rgba(0,0,0,0.6)" }}
-            >
-              <span className="dark:hidden">{description}</span>
-              <span className="hidden dark:inline" style={{ color: "rgba(255,255,255,0.6)" }}>
-                {description}
-              </span>
-            </p>
-          )}
           <p
-            className="text-[12px] leading-4 mt-0.5"
+            className="text-[12px] leading-4 mt-1"
             style={{ color: "rgba(0,0,0,0.6)" }}
           >
             <span className="dark:hidden">{domain}</span>
